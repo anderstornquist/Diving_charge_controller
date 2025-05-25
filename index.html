@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TQ Battery</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2rem;
+      background: #f9f9f9;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    img {
+      width: 120px;
+      height: 120px;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    label, input, button {
+      display: block;
+      margin: 0.5rem auto;
+      font-size: 1rem;
+    }
+    input {
+      padding: 0.3rem;
+      width: 100px;
+    }
+    button {
+      padding: 0.4rem 1rem;
+    }
+  </style>
+</head>
+<body>
+  <img src="logga.png" alt="Logga">
+  <h1>TQ Battery</h1>
+  <button onclick="connect()">Anslut via BLE</button>
+  <div id="status"></div>
+  <label>Starta vid (V): <input id="onVolt" type="number" step="0.1"></label>
+  <label>Stoppa vid (V): <input id="offVolt" type="number" step="0.1"></label>
+  <label><input type="checkbox" id="divingToggle"> Going Diving</label>
+  <button onclick="updateValues()">Spara</button>
+
+  <script>
+    let serviceUUID = 'batt-setpoints';
+    let charUUIDs = {
+      on: '0001',
+      off: '0002',
+      diving: '0003'
+    };
+    let characteristics = {};
+
+    async function connect() {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'TQ-Battery' }],
+        optionalServices: [serviceUUID]
+      });
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(serviceUUID);
+
+      characteristics.on = await service.getCharacteristic(charUUIDs.on);
+      characteristics.off = await service.getCharacteristic(charUUIDs.off);
+      characteristics.diving = await service.getCharacteristic(charUUIDs.diving);
+
+      document.getElementById('status').innerText = "Ansluten";
+
+      const onValue = await characteristics.on.readValue();
+      const offValue = await characteristics.off.readValue();
+      const divingValue = await characteristics.diving.readValue();
+
+      document.getElementById('onVolt').value = parseFloat(textDecoder(onValue));
+      document.getElementById('offVolt').value = parseFloat(textDecoder(offValue));
+      document.getElementById('divingToggle').checked = textDecoder(divingValue) === "1";
+    }
+
+    function textDecoder(data) {
+      return new TextDecoder().decode(data);
+    }
+
+    function updateValues() {
+      const on = document.getElementById('onVolt').value;
+      const off = document.getElementById('offVolt').value;
+      const diving = document.getElementById('divingToggle').checked ? "1" : "0";
+
+      characteristics.on.writeValue(new TextEncoder().encode(on));
+      characteristics.off.writeValue(new TextEncoder().encode(off));
+      characteristics.diving.writeValue(new TextEncoder().encode(diving));
+      alert("Värden skickade!");
+    }
+  </script>
+</body>
+</html>
